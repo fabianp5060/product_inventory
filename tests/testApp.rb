@@ -19,7 +19,9 @@ class TestElemental < Minitest::Test
 
 	def test_5_most_expensive_items_from_each_category
 		expected_hash = @mock.mock_5_most_expensive_items_from_each_category
-		returned_hash = @app.get_most_expensive(@mock.mock_hash)
+
+		returned_hash = Hash.new
+		@mock.mock_hash.each { |type,inventory| returned_hash = @app.get_most_expensive(type,inventory,returned_hash) }
 		assert_equal expected_hash, returned_hash,"#{__method__}: Failed to find 5 most expensive items from each category"
 
 		assert_equal 5,expected_hash["book"].length,"#{__method__}: Failed to return 5 results"
@@ -27,14 +29,25 @@ class TestElemental < Minitest::Test
 
 	def test_which_cds_have_a_total_running_time_longer_than_60_minutes
 		expected_hash = @mock.mock_which_cds_have_a_total_running_time_longer_than_60_minutes
-		returned_hash = @app.get_long_cds(@mock.mock_hash)
+
+		returned_hash = Hash.new do |k1,v1|
+            k1[v1] = Array.new
+        end
+
+		@mock.mock_hash.each {|type,inventory| returned_hash = @app.get_long_cds(type,inventory,returned_hash) }
 
 		assert_equal expected_hash,returned_hash,"#{__method__}: Failed to find matching results"
 	end
 
 	def test_which_authors_have_also_released_cds
 		expected_list = @mock.mock_which_authors_have_also_released_cds
-		returned_list = @app.get_dup_auths(@mock.mock_hash)
+
+		book_cd_authors = Hash.new do |k1,v1|
+            k1[v1] = Hash.new
+        end
+
+		@mock.mock_hash.each { |type,inventory| book_cd_authors = @app.get_book_cd_authors(type,inventory,book_cd_authors) }
+		returned_list = @app.get_dup_auths(book_cd_authors)
 
 		assert_equal expected_list,returned_list,"#{__method__}: Failed to find matching authors"
 	end

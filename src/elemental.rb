@@ -30,6 +30,8 @@ class Elemental
 		return JSON.parse(json_data, :symbolize_names => true)	
 	end
 
+	# Use Type element as hash key
+	# hash[type] = Array(item)
 	def get_clean_inventory(data_set)
 		clean_inventory = @helpers.make_hoa
 
@@ -45,97 +47,102 @@ class Elemental
 		return clean_inventory
 	end
 
-	def get_most_expensive(clean_inventory)
-		result = Hash.new
+	def parse_data_for_info(clean_inventory)
+		most_expensive = Hash.new
+		long_cds = @helpers.make_hoa
+		book_cd_authors = @helpers.make_hoh
+
+		counter,found_data,regx_search,search_info,names_with_years = setup_search_for_value(clean_inventory.keys)
+
+
 		clean_inventory.each do |type,inventory|
-			result[type] = Array.new
-			ordered_list = inventory.sort {|x,y| y[:price] <=> x[:price] }
-			ordered_list[0..4].each do |item|
-				result[type].push(item)
-			end
+			most_expensive = get_most_expensive(type,inventory,most_expensive)
+			long_cds = get_long_cds(type,inventory,long_cds) if type == "cd"
+			book_cd_authors = get_book_cd_authors(type,inventory,book_cd_authors) unless type == "dvd"
+			names_with_years = search_for_value(counter,inventory,found_data,regx_search,search_info,type,type)
 		end
-		return result
+		dup_book_cd_authors = get_dup_auths(book_cd_authors)
+
+		return most_expensive,long_cds,dup_book_cd_authors,names_with_years
 	end
 
-	def get_long_cds(clean_inventory)
-		result = @helpers.make_hoa
-		cd_lenght = Hash.new
-		clean_inventory.each do |type,inventory|
-			if type == "cd"
-				inventory.each do |item|
-					total_track_time = 0
-					item[:tracks].each do |track|
-						total_track_time += track[:seconds]
-					end
-					if total_track_time/60 > 60
-						item[:total_time] = total_track_time/60
-						result[type].push(item) 
-					end
-				end
-			end
-		end
-		return result
+	def setup_search_for_value(inv_keys)
+		regx_search = Regexp.new('[12]\d\d\d')
+		search_info = {
+			search_keys: ['title','name','chapters'],
+			types: inv_keys
+		}
+		found_data = @helpers.make_hohoa
+		returned_hash = nil
+		counter = 0
+		names_with_years = nil	
+
+		return counter,found_data,regx_search,search_info,names_with_years
 	end
 
-	def get_dup_auths(clean_inventory)
+
+	# Get Top five most expensive items for each inventory type (Ordered by most expensive)
+	# Return Hash of Arrays | hash[type] = Array(<top 5 items>)
+	def get_most_expensive(type,inventory,most_expensive)
+		most_expensive[type] = Array.new
+		ordered_list = inventory.sort {|x,y| y[:price] <=> x[:price] }
+		ordered_list[0..4].each do |item|
+			most_expensive[type].push(item)
+		end
+
+		return most_expensive
+	end
+
+	# Get any cd's where the sum of the track play times is > 60
+	# Return Hash of Array | hash[type] = Array(<items > 60 min play time>)
+	def get_long_cds(type,inventory,long_cds)
+		inventory.each do |item|
+			total_track_time = 0
+			item[:tracks].each do |track|
+				total_track_time += track[:seconds]
+			end
+			if total_track_time/60 > 60
+				item[:total_time] = total_track_time/60
+				long_cds[type].push(item) 
+			end
+		end
+		return long_cds
+	end
+
+	# Get all authors who have created both books and CDs
+	# Return Array | array = [<rows of author_names>]
+	def get_book_cd_authors(type,inventory,book_cd_authors)
+		inventory.each { |item| book_cd_authors[type][item[:author]] = nil }
+		return book_cd_authors
+	end
+
+	def get_dup_auths(book_cd_authors)
 		result = Array.new
-		book_inv = Hash.new
-		cd_inv = Hash.new
-		clean_inventory.each do |type,inventory|
-			if type == "book" || type == "cd"
-				inventory.each do |item|
-					book_inv[item[:author]] = nil if type == "book"
-					cd_inv[item[:author]] = nil if type == "cd"
-				end
+		book_cd_authors["cd"].each do |auth_name,_|
+			if book_cd_authors["book"].has_key?(auth_name)
+				result.push(auth_name)
+				book_cd_authors["cd"].delete(auth_name)
 			end
 		end
-		book_inv.each do |k,_|
-			if cd_inv.has_key?(k)
-				result.push(k)
-				cd_inv.delete(k)
-			end
-		end
+		puts "My RESULT: #{result}"
 		return result
 	end
 
-	# def get_items_with_year(clean_inventory)
-	# 	result = @helpers.make_hoa
-		
-	# 	year_info = @helpers.make_hoa	
-	# 	clean_inventory.each do |type,inventory|
-	# 		inventory.each do |item|
-	# 		year_info[type].push(item) if item.has_key?(:title) && item[:title] =~ /[12]\d\d\d/
-	# 		year_info[type].push(item) if item.has_key?(:chapters) && item[:chapters] =~ /[12]\d\d\d/
-	# 		year_info[type].push(item) if item.has_key?(:track)
 
-					
-	# 	end
-	# end
-
+	# Get list of all items that contain a year in the Title, Track_Name, or Chapter_Name
+	# Year is any 4 digit number that starts with 1 or 2 (IE 1000 -> 2999)
+	# Return Hash of Hash of Array of Arrays | hash[type][matching_row_num] = [true,<item>]
 	def search_for_value(counter,data_set,found_data,regx_search,search_info,type,key)
-		# puts "ENTERING SEARCH_FOR_VALUE\n  TYPE: #{type}\n  COUNTER: #{counter}\n  KEY: #{key}\n  INVENTORY/DATASET: #{data_set}\n  FOUND DATA: #{found_data}"
-		# puts "====="
 		if data_set.is_a?(Hash)
-			data_set.each do |k,v|
-				# puts "Parsing Hash with K #{k} and value: #{v}\n---------------"
-				found_data = search_for_value(counter,v,found_data,regx_search,search_info,type,k)
-			end
+			data_set.each { |k,v| found_data = search_for_value(counter,v,found_data,regx_search,search_info,type,k) }
 		elsif data_set.is_a?(Array)
 			data_set.each do |v|
-				# puts "Parsing Array formerly with K #{key} and value: #{v}\n---------------"	
 				found_data[key][counter] = [nil,v] if search_info[:types].include?(key)
-			
 				found_data = search_for_value(counter,v,found_data,regx_search,search_info,type,key)		
 				
-				# puts "if key = type? (#{key})"
 				if search_info[:types].include?(key)
-					# puts "Setting interesting value to nil<<<<<<++++++++_______++++===="
-
-					# puts "Checking if counter (#{counter}) is in hash? #{found_data[key].has_key?(counter)}"
 					if found_data[key].has_key?(counter)
-						# puts "Is #{found_data[key][counter]}\n==> interesting? #{found_data[key][counter][0]}"
 						if found_data[type][counter][0] == false
-							# puts "DELETING Line: at: #{counter} (#{found_data[key][counter]})" 
 							found_data[key].delete(counter)
 						end
 					end
@@ -143,17 +150,11 @@ class Elemental
 				end						
 			end
 		else
-			# puts "Parsing value: #{data_set} former K #{key}"
 			if data_set.to_s.match(regx_search)
-				# puts "Found Matching Value for #{data_set}"
-				# puts "DOES K (#{key} exist in #{search_info[:search_keys]}: (#{search_info[:search_keys].include?(key.to_s)})"
 				if search_info[:search_keys].include?(key.to_s)
 					found_data[type][counter][0] = true
-					# puts "Found Value that we care about K: #{key}: (#{data_set}) for counter: #{counter} and is interesting? #{found_data[type][counter][0]}" 
 				else
 					found_data[type][counter][0] = false unless found_data[type][counter][0] == true
-					# puts "Setting interesting value to false (IN ELSE STATEMENT)<<<<<<++++++++_______++++===="
-
 				end
 			end
 
