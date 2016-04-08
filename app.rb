@@ -24,6 +24,7 @@ clean_inventory = @app.get_clean_inventory(data_set)
 most_expensive,long_cds,dup_book_cd_authors,names_with_years = @app.parse_data_for_info(clean_inventory)
 
 #  What are the 5 most expensive items from each category?
+puts "5 most expensive items for each type of item in inventory"
 most_expensive.each do |type,items|
 	puts "TYPE: #{type}"
 	puts items

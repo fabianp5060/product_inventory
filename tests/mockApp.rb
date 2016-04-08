@@ -72,12 +72,21 @@ class MockApp
 	end
 
 	def mock_which_authors_have_also_released_cds
-		expected_result = [
+		expected_book_cd_authors = {
+			"cd"=>{
+				"Katherine Cunningham"=>nil, "Irene Castillo"=>nil, "Louis Mitchell"=>nil, "John Mason"=>nil, "Jacqueline Spencer"=>nil, "Jean Armstrong"=>nil, "Philip Reynolds"=>nil
+			}, 
+			"book"=>{
+				"Martha Bryant"=>nil, "Dorothy Howard"=>nil, "Gerald Wells"=>nil, "Earl Stephens"=>nil, "Tina Allen"=>nil, "Jean Armstrong"=>nil, "Philip Reynolds"=>nil
+			}
+		}
+
+		expected_dup_authors = [
 			"Jean Armstrong",
 			"Philip Reynolds"
 		]
 
-		return expected_result
+		return expected_book_cd_authors,expected_dup_authors
 	end
 
 	def mock_which_items_have_a_title_track_or_chapter_that_contains_a_year

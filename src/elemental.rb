@@ -6,6 +6,9 @@ class Elemental
     	@helpers = Helpers.new
     end
 
+    # Collect user input if no file was specfied.
+    # Use __END__ to finish collection
+    # Input is expected to be well formated JSON data
 	def get_user_input
 		puts "enter json data, enter __END__ when complete"
 
@@ -18,6 +21,8 @@ class Elemental
 		return final_user_input
 	end
 
+	# Collect file name from user as input 
+	# Data is expected to be well-formatted JSON data
 	def get_input_from_file(file_name)
 		abort "Could not locate file: #{file_name}" unless File.exists?(file_name)
 		file_input = File.read(file_name)
@@ -47,6 +52,7 @@ class Elemental
 		return clean_inventory
 	end
 
+	# Query inventory items for specific criteria
 	def parse_data_for_info(clean_inventory)
 		most_expensive = Hash.new
 		long_cds = @helpers.make_hoa
@@ -65,21 +71,6 @@ class Elemental
 
 		return most_expensive,long_cds,dup_book_cd_authors,names_with_years
 	end
-
-	def setup_search_for_value(inv_keys)
-		regx_search = Regexp.new('[12]\d\d\d')
-		search_info = {
-			search_keys: ['title','name','chapters'],
-			types: inv_keys
-		}
-		found_data = @helpers.make_hohoa
-		returned_hash = nil
-		counter = 0
-		names_with_years = nil	
-
-		return counter,found_data,regx_search,search_info,names_with_years
-	end
-
 
 	# Get Top five most expensive items for each inventory type (Ordered by most expensive)
 	# Return Hash of Arrays | hash[type] = Array(<top 5 items>)
@@ -109,13 +100,16 @@ class Elemental
 		return long_cds
 	end
 
-	# Get all authors who have created both books and CDs
+	# Get all authors who have created books and/or CDs
 	# Return Array | array = [<rows of author_names>]
 	def get_book_cd_authors(type,inventory,book_cd_authors)
 		inventory.each { |item| book_cd_authors[type][item[:author]] = nil }
 		return book_cd_authors
 	end
 
+	# Parse result from get_book_cd_authors results to find any authors that have published
+	# both books and cds
+	#Return Array of Authorss
 	def get_dup_auths(book_cd_authors)
 		result = Array.new
 		book_cd_authors["cd"].each do |auth_name,_|
@@ -124,10 +118,23 @@ class Elemental
 				book_cd_authors["cd"].delete(auth_name)
 			end
 		end
-		puts "My RESULT: #{result}"
 		return result
 	end
 
+	# Setup variables to search for values
+	def setup_search_for_value(inv_keys)
+		regx_search = Regexp.new('[12]\d\d\d')
+		search_info = {
+			search_keys: ['title','name','chapters'],
+			types: inv_keys
+		}
+		found_data = @helpers.make_hohoa
+		returned_hash = nil
+		counter = 0
+		names_with_years = nil	
+
+		return counter,found_data,regx_search,search_info,names_with_years
+	end
 
 	# Get list of all items that contain a year in the Title, Track_Name, or Chapter_Name
 	# Year is any 4 digit number that starts with 1 or 2 (IE 1000 -> 2999)
